@@ -10,6 +10,10 @@
   margin: 0;
   padding: 0;
 }
+
+.DistortionCarousel__canvas {
+  width: 100%;
+}
 </style>
 
 <script lang="ts">
@@ -24,7 +28,7 @@ import { getConvertToWebGLTextureFromImage } from './utils/convertToWebGLTexture
 import { getAndCreateBuffer } from './utils/getAndCreateBuffer';
 import { getAnimation, IO as AnimationIO } from './utils/getAnimation';
 import { loadImages } from './utils/loadImages';
-import { resize } from './utils/resize';
+import { resize, Ratio } from './utils/resize';
 
 export type Data = {
   graphicTextures: WebGLTexture[];
@@ -33,26 +37,40 @@ export type Data = {
 };
 export type Methods = { setCanvas: (canvas: HTMLCanvasElement) => Promise<void> };
 export type Computed = {};
-export type PropNames = {
+export type Props = {
   index: number;
   imageUrls: string[];
   distortionTextureUrl: string;
+  maxWidth: number;
+  ratio: Ratio;
 };
 
-const initialData: Data = { graphicTextures: [], distortionTexture: undefined, animation: undefined };
-export default Vue.extend<Data, Methods, Computed, PropNames>({
-  data() {
-    return { ...initialData };
+const data: () => Data = () => ({ graphicTextures: [], distortionTexture: undefined, animation: undefined });
+const props = {
+  index: Number,
+  imageUrls: Array,
+  distortionTextureUrl: String,
+  maxWidth: {
+    type: Number,
+    default: 1280,
   },
-  props: {
-    index: Number,
-    imageUrls: Array,
-    distortionTextureUrl: String,
+  ratio: {
+    type: Object,
+    default: () => ({
+      width: 16,
+      height: 10,
+    }),
   },
+};
+
+export default Vue.extend<Data, Methods, Computed, Props>({
+  data,
+  props,
   methods: {
     setCanvas: async function(canvas: HTMLCanvasElement) {
       const { gl, program, vertexShader, fragmentShader } = getWebGLContexts(canvas);
-      const resizeCanvas = () => resize(canvas, [16, 10], 1280);
+      const { maxWidth, ratio } = this;
+      const resizeCanvas = () => resize(canvas, ratio, maxWidth);
 
       compileShader(gl, program, vertexShader, VertexShaderSrc);
       compileShader(gl, program, fragmentShader, FragmentShaderSrc);
