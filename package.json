@@ -1,19 +1,29 @@
 {
-  "name": "disortion-carousel",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@kaave/vue-disortion-carousel",
+  "version": "0.0.1",
+  "main": "./dist/disortion-carousel.common.js",
+  "files": [
+    "dist/*",
+    "src/*",
+    "public/*",
+    "*.json",
+    "*.js"
+  ],
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
+    "build-bundle": "vue-cli-service build --target lib --name disortion-carousel ./src/components/DistortionCarousel.vue",
     "lint": "vue-cli-service lint",
     "test:unit": "vue-cli-service test:unit"
   },
   "dependencies": {
+    "gsap": "^2.1.2",
     "vue": "^2.6.6",
     "vue-class-component": "^6.0.0",
     "vue-property-decorator": "^7.0.0"
   },
   "devDependencies": {
+    "@types/gsap": "^1.20.2",
     "@types/jest": "^23.1.4",
     "@vue/cli-plugin-eslint": "^3.5.0",
     "@vue/cli-plugin-typescript": "^3.5.0",
@@ -26,6 +36,7 @@
     "eslint": "^5.8.0",
     "eslint-plugin-vue": "^5.0.0",
     "node-sass": "^4.9.0",
+    "raw-loader": "^2.0.0",
     "sass-loader": "^7.1.0",
     "ts-jest": "^23.0.0",
     "typescript": "^3.2.1",
