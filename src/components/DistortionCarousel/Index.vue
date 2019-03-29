@@ -1,16 +1,22 @@
 <template>
   <figure class="DistortionCarousel">
-    <palette/>
-    <figcaption class="DistortionCarousel__caption">Distortion Carousel</figcaption>
+    <canvas ref="canvas" class="DistortionCarousel__canvas"/>
   </figure>
 </template>
 
-<script lang="ts">
-import { Vue, Component, Prop, Provide, Watch } from 'vue-property-decorator';
+<style lang="scss" scoped>
+.DistortionCarousel {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+</style>
 
-import VertexShaderSrc from './shader.vert';
-import FragmentShaderSrc from './shader.frag';
-import Palette from './Palette.vue';
+<script lang="ts">
+import Vue from 'vue';
+
+import VertexShaderSrc from './shaders/shader.vert';
+import FragmentShaderSrc from './shaders/shader.frag';
 import { getWebGLContexts } from './utils/getWebGLContext';
 import { getUniformLocation } from './utils/getUniformLocation';
 import { compileShader } from './utils/compileShader';
@@ -20,77 +26,90 @@ import { getAnimation, IO as AnimationIO } from './utils/getAnimation';
 import { loadImages } from './utils/loadImages';
 import { resize } from './utils/resize';
 
-@Component({ components: { Palette } })
-export default class DistortionCarousel extends Vue {
-  graphicTextures: WebGLTexture[] = [];
+export type Data = {
+  graphicTextures: WebGLTexture[];
   distortionTexture?: WebGLTexture;
   animation?: AnimationIO;
+};
+export type Methods = { setCanvas: (canvas: HTMLCanvasElement) => Promise<void> };
+export type Computed = {};
+export type PropNames = {
+  index: number;
+  imageUrls: string[];
+  distortionTextureUrl: string;
+};
 
-  @Prop() private index!: number;
-  @Prop() private imageUrls!: string[];
-  @Prop() private distortionTextureUrl!: string;
+const initialData: Data = { graphicTextures: [], distortionTexture: undefined, animation: undefined };
+export default Vue.extend<Data, Methods, Computed, PropNames>({
+  data() {
+    return { ...initialData };
+  },
+  props: {
+    index: Number,
+    imageUrls: Array,
+    distortionTextureUrl: String,
+  },
+  methods: {
+    setCanvas: async function(canvas: HTMLCanvasElement) {
+      const { gl, program, vertexShader, fragmentShader } = getWebGLContexts(canvas);
+      const resizeCanvas = () => resize(canvas, [16, 10], 1280);
 
-  @Provide() setCanvas = async (canvas: HTMLCanvasElement) => {
-    const { gl, program, vertexShader, fragmentShader } = getWebGLContexts(canvas);
-    const resizeCanvas = () => resize(canvas, [16, 10], 1280);
+      compileShader(gl, program, vertexShader, VertexShaderSrc);
+      compileShader(gl, program, fragmentShader, FragmentShaderSrc);
+      gl.linkProgram(program);
 
-    compileShader(gl, program, vertexShader, VertexShaderSrc);
-    compileShader(gl, program, fragmentShader, FragmentShaderSrc);
-    gl.linkProgram(program);
+      const vertexBuffer = getAndCreateBuffer(gl);
+      const vertexLocation = gl.getAttribLocation(program, 'position');
+      const uniformLocations = {
+        start: getUniformLocation('start', gl, program),
+        stop: getUniformLocation('stop', gl, program),
+        startAngle: getUniformLocation('startAngle', gl, program),
+        stopAngle: getUniformLocation('stopAngle', gl, program),
+        disp: getUniformLocation('disp', gl, program),
+        dispFactor: getUniformLocation('dispFactor', gl, program),
+      };
 
-    const vertexBuffer = getAndCreateBuffer(gl);
-    const vertexLocation = gl.getAttribLocation(program, 'position');
-    const uniformLocations = {
-      start: getUniformLocation('start', gl, program),
-      stop: getUniformLocation('stop', gl, program),
-      startAngle: getUniformLocation('startAngle', gl, program),
-      stopAngle: getUniformLocation('stopAngle', gl, program),
-      disp: getUniformLocation('disp', gl, program),
-      dispFactor: getUniformLocation('dispFactor', gl, program),
-    };
+      const images = await Promise.all(loadImages([this.distortionTextureUrl, ...this.imageUrls]));
+      const [distortionTexture, ...graphicTextures] = images.map(getConvertToWebGLTextureFromImage(gl));
+      this.distortionTexture = distortionTexture;
+      this.graphicTextures = graphicTextures;
+      const textures = { start: graphicTextures[0], stop: graphicTextures[1], disp: this.distortionTexture };
 
-    const images = await Promise.all(loadImages([this.distortionTextureUrl, ...this.imageUrls]));
-    const [distortionTexture, ...graphicTextures] = images.map(getConvertToWebGLTextureFromImage(gl));
-    this.distortionTexture = distortionTexture;
-    this.graphicTextures = graphicTextures;
-    const textures = { start: graphicTextures[0], stop: graphicTextures[1], disp: this.distortionTexture };
+      resizeCanvas();
 
-    resizeCanvas();
+      this.animation = getAnimation({
+        gl,
+        program,
+        vertexBuffer,
+        vertexLocation,
+        uniformLocations,
+        textures,
+      });
+      this.animation.init();
 
-    this.animation = getAnimation({
-      gl,
-      program,
-      vertexBuffer,
-      vertexLocation,
-      uniformLocations,
-      textures,
-    });
-    this.animation.setValues({ dispFactor: 0 });
-    this.animation.start();
-
-    window.addEventListener('resize', () => resizeCanvas());
-  };
-
-  // @ts-ignore onIndexUpdateにarrowfunctionを適用する必要がある...のか？
-  @Watch('index') onIndexUpdate = (index: number, startIndex: number): void => {
-    const { distortionTexture, animation } = this;
-    if (!distortionTexture || !animation) {
-      return;
+      window.addEventListener('resize', () => resizeCanvas());
+    },
+  },
+  mounted: async function() {
+    const canvas = this.$refs.canvas;
+    if (canvas instanceof HTMLCanvasElement) {
+      this.setCanvas(canvas);
     }
+  },
+  watch: {
+    index(index: number, startIndex: number) {
+      const { distortionTexture, animation } = this;
+      if (!distortionTexture || !animation) {
+        return;
+      }
 
-    const max = this.graphicTextures.length;
-    const start = this.graphicTextures[startIndex];
-    const stop = this.graphicTextures[index];
-    animation.setTextures({ start, stop, disp: distortionTexture });
-    animation.setValues({ dispFactor: 0 });
-    animation.start();
-  };
-}
+      const max = this.graphicTextures.length;
+      const start = this.graphicTextures[startIndex];
+      const stop = this.graphicTextures[index];
+      animation.setTextures({ start, stop, disp: distortionTexture });
+      animation.setValues({ dispFactor: 0 });
+      animation.start();
+    },
+  },
+});
 </script>
-
-<style lang="scss" scoped>
-.DistortionCarousel {
-  width: 100%;
-}
-</style>
-

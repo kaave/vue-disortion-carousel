@@ -21,6 +21,7 @@ export interface Textures {
 export interface IO {
   setTextures: (textures: Textures) => void;
   setValues: (values: { dispFactor: number }) => void;
+  init: () => void;
   start: () => void;
   stop: () => void;
 }
@@ -84,6 +85,13 @@ class Animation implements IO {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     this.animationID = requestAnimationFrame(this.animation);
+  };
+
+  init = () => {
+    this.run();
+    TweenLite.killTweensOf(this.values);
+    this.values = { dispFactor: 1 };
+    this.stop();
   };
 
   start = () => {

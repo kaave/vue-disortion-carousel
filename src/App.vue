@@ -15,7 +15,7 @@ import DistortionCarousel from './components/DistortionCarousel/Index.vue';
 
 @Component({ components: { DistortionCarousel } })
 export default class App extends Vue {
-  index = 1;
+  index = 0;
 
   get imageUrls(): string[] {
     return ['/d1.jpg', '/d2.jpg', '/d3.jpg'];
@@ -26,7 +26,9 @@ export default class App extends Vue {
   }
 
   mounted() {
-    setInterval(() => (this.index = (this.index + 1) % this.imageUrls.length), 3000);
+    setInterval(() => {
+      this.index = (this.index + 1) % this.imageUrls.length;
+    }, 3000);
   }
 }
 </script>
