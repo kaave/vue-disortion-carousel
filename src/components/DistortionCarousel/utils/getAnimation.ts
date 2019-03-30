@@ -110,7 +110,7 @@ class Animation implements IO {
   start = () => {
     this.run();
     TweenLite.killTweensOf(this.values);
-    TweenLite.to(this.values, 3, {
+    TweenLite.to(this.values, this.params.durationSec, {
       dispFactor: 1,
       ease: this.params.easing,
       onComplete: this.stop,

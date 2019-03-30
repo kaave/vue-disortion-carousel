@@ -1,5 +1,7 @@
 <template>
-  <canvas ref="canvas" class="DistortionCarousel"/>
+  <canvas ref="canvas" class="DistortionCarousel">
+    <slot/>
+  </canvas>
 </template>
 
 <style lang="scss" scoped>
@@ -10,7 +12,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
-import { Expo } from 'gsap';
+import { Expo, Ease } from 'gsap';
 
 import VertexShaderSrc from './shaders/shader.vert';
 import FragmentShaderSrc from './shaders/shader.frag';
@@ -44,6 +46,8 @@ export type Props = {
   maxWidth: number;
   ratio: Ratio;
   moveThreshold: number;
+  durationSec: number;
+  easing: Ease;
 };
 
 const data: () => Data = () => ({
@@ -70,6 +74,14 @@ const props = {
   moveThreshold: {
     type: Number,
     default: 0.2,
+  },
+  durationSec: {
+    type: Number,
+    default: 2.5,
+  },
+  easing: {
+    type: Object,
+    default: Expo.easeInOut,
   },
 };
 
@@ -118,8 +130,8 @@ export default Vue.extend<Data, Methods, Computed, Props>({
         startAngle: toRadian(45 as Degree),
         stopAngle: toRadian((45 + 180) as Degree),
         moveThreshold: toThreshold(1 - this.moveThreshold),
-        durationSec: 2.5,
-        easing: Expo.easeInOut,
+        durationSec: this.durationSec,
+        easing: this.easing,
       };
 
       this.resize();
@@ -158,14 +170,26 @@ export default Vue.extend<Data, Methods, Computed, Props>({
       animation.setValues({ dispFactor: 0 });
       animation.start();
     },
+    ratio() {
+      this.resize();
+    },
     moveThreshold(threshold: number, _: number) {
       const { animation } = this;
       if (animation) {
         animation.setParams({ moveThreshold: toThreshold(1 - threshold) });
       }
     },
-    ratio() {
-      this.resize();
+    durationSec(durationSec: number, _: number) {
+      const { animation } = this;
+      if (animation) {
+        animation.setParams({ durationSec });
+      }
+    },
+    easing(easing: Ease) {
+      const { animation } = this;
+      if (animation) {
+        animation.setParams({ easing });
+      }
     },
   },
 });

@@ -7,7 +7,9 @@
       :max-width="1000"
       :ratio="{ width: 16, height: 10 }"
       :move-threshold="0.2"
-    />
+      :duration-sec="2.5"
+      :easing="easing"
+    >It's Readable Content!</distortion-carousel>
   </div>
 </template>
 
@@ -20,6 +22,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import { Expo, Ease } from 'gsap';
 
 import DistortionCarousel from './components/DistortionCarousel/Index.vue';
 
@@ -44,6 +47,9 @@ export default Vue.extend<Data, Methods, Computed, Props>({
     },
     distortionTextureUrl(): string {
       return '/texture.jpg';
+    },
+    easing(): Ease {
+      return Expo.easeOut;
     },
   },
   mounted() {
