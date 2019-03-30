@@ -1,41 +1,41 @@
 <template>
-  <figure class="DistortionCarousel">
-    <canvas ref="canvas" class="DistortionCarousel__canvas"/>
-  </figure>
+  <canvas ref="canvas" class="DistortionCarousel"/>
 </template>
 
 <style lang="scss" scoped>
 .DistortionCarousel {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.DistortionCarousel__canvas {
   width: 100%;
 }
 </style>
 
 <script lang="ts">
 import Vue from 'vue';
+import { Expo } from 'gsap';
 
 import VertexShaderSrc from './shaders/shader.vert';
 import FragmentShaderSrc from './shaders/shader.frag';
-import { getWebGLContexts } from './utils/getWebGLContext';
-import { getUniformLocation } from './utils/getUniformLocation';
-import { compileShader } from './utils/compileShader';
-import { getConvertToWebGLTextureFromImage } from './utils/convertToWebGLTextureFromImage';
-import { getAndCreateBuffer } from './utils/getAndCreateBuffer';
-import { getAnimation, IO as AnimationIO } from './utils/getAnimation';
-import { loadImages } from './utils/loadImages';
-import { resize, Ratio } from './utils/resize';
+import {
+  Radian,
+  Degree,
+  toRadian,
+  getWebGLContexts,
+  getUniformLocation,
+  compileShader,
+  getConvertToWebGLTextureFromImage,
+  getAndCreateBuffer,
+  loadImages,
+  resize,
+  Ratio,
+} from './utils';
+import { getAnimation, IO as AnimationIO, Params, Threshold, toThreshold } from './utils/getAnimation';
 
 export type Data = {
+  canvas: HTMLCanvasElement | null;
   graphicTextures: WebGLTexture[];
   distortionTexture?: WebGLTexture;
   animation?: AnimationIO;
 };
-export type Methods = { setCanvas: (canvas: HTMLCanvasElement) => Promise<void> };
+export type Methods = { initialize: () => Promise<void>; resize: () => void };
 export type Computed = {};
 export type Props = {
   index: number;
@@ -43,9 +43,15 @@ export type Props = {
   distortionTextureUrl: string;
   maxWidth: number;
   ratio: Ratio;
+  moveThreshold: number;
 };
 
-const data: () => Data = () => ({ graphicTextures: [], distortionTexture: undefined, animation: undefined });
+const data: () => Data = () => ({
+  canvas: null,
+  graphicTextures: [],
+  distortionTexture: undefined,
+  animation: undefined,
+});
 const props = {
   index: Number,
   imageUrls: Array,
@@ -61,16 +67,29 @@ const props = {
       height: 10,
     }),
   },
+  moveThreshold: {
+    type: Number,
+    default: 0.2,
+  },
 };
 
 export default Vue.extend<Data, Methods, Computed, Props>({
   data,
   props,
   methods: {
-    setCanvas: async function(canvas: HTMLCanvasElement) {
+    resize() {
+      const { canvas, ratio, maxWidth } = this;
+
+      if (canvas) {
+        resize(canvas, ratio, maxWidth);
+      }
+    },
+    initialize: async function() {
+      const { canvas, maxWidth, ratio } = this;
+      if (!canvas) {
+        return;
+      }
       const { gl, program, vertexShader, fragmentShader } = getWebGLContexts(canvas);
-      const { maxWidth, ratio } = this;
-      const resizeCanvas = () => resize(canvas, ratio, maxWidth);
 
       compileShader(gl, program, vertexShader, VertexShaderSrc);
       compileShader(gl, program, fragmentShader, FragmentShaderSrc);
@@ -83,6 +102,7 @@ export default Vue.extend<Data, Methods, Computed, Props>({
         stop: getUniformLocation('stop', gl, program),
         startAngle: getUniformLocation('startAngle', gl, program),
         stopAngle: getUniformLocation('stopAngle', gl, program),
+        moveThreshold: getUniformLocation('moveThreshold', gl, program),
         disp: getUniformLocation('disp', gl, program),
         dispFactor: getUniformLocation('dispFactor', gl, program),
       };
@@ -91,9 +111,18 @@ export default Vue.extend<Data, Methods, Computed, Props>({
       const [distortionTexture, ...graphicTextures] = images.map(getConvertToWebGLTextureFromImage(gl));
       this.distortionTexture = distortionTexture;
       this.graphicTextures = graphicTextures;
-      const textures = { start: graphicTextures[0], stop: graphicTextures[1], disp: this.distortionTexture };
+      const params: Params = {
+        startTexture: graphicTextures[0],
+        stopTexture: graphicTextures[1],
+        dispTexture: this.distortionTexture,
+        startAngle: toRadian(45 as Degree),
+        stopAngle: toRadian((45 + 180) as Degree),
+        moveThreshold: toThreshold(1 - this.moveThreshold),
+        durationSec: 2.5,
+        easing: Expo.easeInOut,
+      };
 
-      resizeCanvas();
+      this.resize();
 
       this.animation = getAnimation({
         gl,
@@ -101,17 +130,18 @@ export default Vue.extend<Data, Methods, Computed, Props>({
         vertexBuffer,
         vertexLocation,
         uniformLocations,
-        textures,
+        params,
       });
       this.animation.init();
 
-      window.addEventListener('resize', () => resizeCanvas());
+      window.addEventListener('resize', () => this.resize());
     },
   },
   mounted: async function() {
     const canvas = this.$refs.canvas;
     if (canvas instanceof HTMLCanvasElement) {
-      this.setCanvas(canvas);
+      this.canvas = canvas;
+      this.initialize();
     }
   },
   watch: {
@@ -122,11 +152,20 @@ export default Vue.extend<Data, Methods, Computed, Props>({
       }
 
       const max = this.graphicTextures.length;
-      const start = this.graphicTextures[startIndex];
-      const stop = this.graphicTextures[index];
-      animation.setTextures({ start, stop, disp: distortionTexture });
+      const startTexture = this.graphicTextures[startIndex];
+      const stopTexture = this.graphicTextures[index];
+      animation.setParams({ startTexture, stopTexture });
       animation.setValues({ dispFactor: 0 });
       animation.start();
+    },
+    moveThreshold(threshold: number, _: number) {
+      const { animation } = this;
+      if (animation) {
+        animation.setParams({ moveThreshold: toThreshold(1 - threshold) });
+      }
+    },
+    ratio() {
+      this.resize();
     },
   },
 });

@@ -4,15 +4,18 @@ uniform sampler2D start;
 uniform sampler2D stop;
 uniform float startAngle;
 uniform float stopAngle;
+uniform float moveThreshold;
 uniform sampler2D disp;
 uniform float dispFactor;
 
 varying vec2 vUv;
 
+float moveDirection = -1.0;
+
 mat2 getRotM(float angle) {
   float s = sin(angle);
   float c = cos(angle);
-  return mat2(c, -s, -s * 0.8, c);
+  return mat2(c, -s, s * moveThreshold * moveDirection, c);
 }
 
 void main() {

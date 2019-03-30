@@ -1,6 +1,7 @@
-import { TweenLite, Expo } from 'gsap';
+import { TweenLite, Ease } from 'gsap';
 
 import { Uniforms } from './getUniformLocation';
+import { Radian } from './angle';
 
 export interface Props {
   gl: WebGLRenderingContext;
@@ -8,18 +9,32 @@ export interface Props {
   vertexBuffer: WebGLBuffer;
   vertexLocation: number;
   uniformLocations: Uniforms;
-  textures: Textures;
+  params: Params;
 }
 
-export interface Textures {
-  start: WebGLTexture;
-  stop: WebGLTexture;
-  disp: WebGLTexture;
+export type Params = {
+  startTexture: WebGLTexture;
+  stopTexture: WebGLTexture;
+  dispTexture: WebGLTexture;
+  startAngle: Radian;
+  stopAngle: Radian;
+  moveThreshold: number;
+  durationSec: number;
+  easing: Ease;
+};
+
+export type Threshold = number & { __threshold: never };
+export function toThreshold(threshold: number): Threshold {
+  if (threshold < 0 || threshold > 1) {
+    throw new Error('Invalid Threshold: threshold range is 0 to 1');
+  }
+
+  return threshold as Threshold;
 }
 
 // eslint-disable-next-line @typescript-eslint/interface-name-prefix
 export interface IO {
-  setTextures: (textures: Textures) => void;
+  setParams: (params: Partial<Params>) => void;
   setValues: (values: { dispFactor: number }) => void;
   init: () => void;
   start: () => void;
@@ -32,26 +47,26 @@ class Animation implements IO {
   vertexBuffer: WebGLBuffer;
   vertexLocation: number;
   uniformLocations: Uniforms;
-  textures: Textures;
+  params: Params;
   values: { dispFactor: number } = { dispFactor: 0 };
   animationID: number | null = null;
 
-  constructor({ gl, program, vertexBuffer, vertexLocation, uniformLocations, textures }: Props) {
+  constructor({ gl, program, vertexBuffer, vertexLocation, uniformLocations, params }: Props) {
     this.gl = gl;
     this.program = program;
     this.vertexBuffer = vertexBuffer;
     this.vertexLocation = vertexLocation;
     this.uniformLocations = uniformLocations;
-    this.textures = textures;
+    this.params = params;
   }
 
   // eslint-disable-next-line no-return-assign
-  setTextures = (textures: Textures) => (this.textures = { ...textures });
+  setParams = (params: Partial<Params>) => (this.params = { ...this.params, ...params });
   // eslint-disable-next-line no-return-assign
   setValues = (values: { dispFactor: number }) => (this.values = { ...values });
 
   animation = () => {
-    const { gl, program, vertexBuffer, vertexLocation, uniformLocations, textures, values } = this;
+    const { gl, program, vertexBuffer, vertexLocation, uniformLocations, values, params } = this;
 
     // WebGLを初期化する
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -67,20 +82,18 @@ class Animation implements IO {
     gl.enableVertexAttribArray(vertexLocation);
 
     [
-      { location: uniformLocations.start, texture: textures.start },
-      { location: uniformLocations.stop, texture: textures.stop },
-      { location: uniformLocations.disp, texture: textures.disp },
+      { location: uniformLocations.start, texture: params.startTexture },
+      { location: uniformLocations.stop, texture: params.stopTexture },
+      { location: uniformLocations.disp, texture: params.dispTexture },
     ].forEach(({ location, texture }, i) => {
       gl.activeTexture(gl.TEXTURE0 + i);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(location, i);
     });
 
-    const commonAngle = 45 * (Math.PI / 180); // 45 degrees by default, so grayscale images work correctly
-    const startAngle = commonAngle;
-    const stopAngle = -commonAngle * 3;
-    gl.uniform1f(uniformLocations.startAngle, startAngle);
-    gl.uniform1f(uniformLocations.stopAngle, stopAngle);
+    gl.uniform1f(uniformLocations.startAngle, params.startAngle);
+    gl.uniform1f(uniformLocations.stopAngle, params.stopAngle);
+    gl.uniform1f(uniformLocations.moveThreshold, params.moveThreshold);
     gl.uniform1f(uniformLocations.dispFactor, values.dispFactor);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -99,7 +112,7 @@ class Animation implements IO {
     TweenLite.killTweensOf(this.values);
     TweenLite.to(this.values, 3, {
       dispFactor: 1,
-      ease: Expo.easeInOut,
+      ease: this.params.easing,
       onComplete: this.stop,
     });
   };

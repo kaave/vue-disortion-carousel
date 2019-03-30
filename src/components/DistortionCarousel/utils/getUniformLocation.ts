@@ -1,15 +1,5 @@
-export type Draft<T, D extends keyof T> = { [K in keyof T]: (K extends D ? T[K] | null : T[K]) };
-
-export type Uniforms = {
-  start: WebGLUniformLocation;
-  stop: WebGLUniformLocation;
-  startAngle: WebGLUniformLocation;
-  stopAngle: WebGLUniformLocation;
-  disp: WebGLUniformLocation;
-  dispFactor: WebGLUniformLocation;
-};
-
-export type UniformKey = keyof Uniforms;
+export type UniformKey = 'start' | 'stop' | 'startAngle' | 'stopAngle' | 'moveThreshold' | 'disp' | 'dispFactor';
+export type Uniforms = { [key in UniformKey]: WebGLUniformLocation };
 
 export function getUniformLocation(
   key: UniformKey,

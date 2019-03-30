@@ -6,6 +6,7 @@
       :distortion-texture-url="distortionTextureUrl"
       :max-width="1000"
       :ratio="{ width: 16, height: 10 }"
+      :move-threshold="0.2"
     />
   </div>
 </template>
@@ -16,7 +17,6 @@
   margin: auto;
 }
 </style>
-
 
 <script lang="ts">
 import Vue from 'vue';
