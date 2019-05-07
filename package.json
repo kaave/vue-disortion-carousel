@@ -6,9 +6,8 @@
     "files": [
         "dist/*",
         "src/*",
-        "public/*",
-        "*.json",
-        "*.js"
+        "package.json",
+        "README.md"
     ],
     "scripts": {
         "serve": "vue-cli-service serve",
