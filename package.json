@@ -1,6 +1,7 @@
 {
     "name": "@kaave/vue-disortion-carousel",
     "version": "0.0.1",
+    "license": "MIT",
     "main": "./dist/disortion-carousel.common.js",
     "files": [
         "dist/*",
