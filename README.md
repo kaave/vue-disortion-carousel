@@ -22,7 +22,7 @@ Vue Image distortion carousel component. Not dependencies any WebGL libraries li
 
 <script>
 import Vue from 'vue';
-import { Expo, Ease } from 'gsap';
+import { Ease, Power3 as Quart } from 'gsap';
 import DistortionCarousel from '@kaave/vue-distortion-carousel.vue';
 
 export default {
@@ -32,10 +32,10 @@ export default {
   },
   computed: {
     imageUrls() { return ['/d1.jpg', '/d2.jpg', '/d3.jpg'] },
-    easing() { return Expo.easeInOut; },
+    easing() { return Quart.easeInOut; },
   },
   mounted: {
-    setInterval
+    setInterval(() => this.index = (this.index + 1) % this.imageUrls.length, 3000);
   },
 };
 </script>
